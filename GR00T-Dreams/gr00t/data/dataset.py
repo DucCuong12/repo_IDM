@@ -293,18 +293,37 @@ class LeRobotSingleDataset(Dataset):
             le_video_meta = le_info["features"][original_key]
             height = le_video_meta["shape"][le_video_meta["names"].index("height")]
             width = le_video_meta["shape"][le_video_meta["names"].index("width")]
-            # NOTE(FH): different lerobot dataset versions have different keys for the number of channels and fps
+            # Handle different dataset versions and structures
             try:
-                channels = le_video_meta["shape"][le_video_meta["names"].index("channel")]
-                fps = le_video_meta["video_info"]["video.fps"]
-            except ValueError:
-                channels = le_video_meta["shape"][le_video_meta["names"].index("channels")]
-                fps = le_video_meta["info"]["video.fps"]
-            simplified_modality_meta["video"][new_key] = {
-                "resolution": [width, height],
-                "channels": channels,
-                "fps": fps,
-            }
+                # Try to get channels (different keys in different versions)
+                try:
+                    channels = le_video_meta["shape"][le_video_meta["names"].index("channel")]
+                except ValueError:
+                    channels = le_video_meta["shape"][le_video_meta["names"].index("channels")]
+                
+                # Try to get FPS with fallback to default value
+                try:
+                    if "video_info" in le_video_meta and "video.fps" in le_video_meta["video_info"]:
+                        fps = le_video_meta["video_info"]["video.fps"]
+                    elif "fps" in le_video_meta:
+                        fps = le_video_meta["fps"]
+                    elif "info" in le_video_meta and "video.fps" in le_video_meta["info"]:
+                        fps = le_video_meta["info"]["video.fps"]
+                    else:
+                        fps = 30.0  # Default FPS if not specified
+                        print(f"Warning: FPS not found in video metadata, using default: {fps}")
+                except Exception as e:
+                    fps = 30.0
+                    print(f"Warning: Could not get FPS, using default: {fps}. Error: {str(e)}")
+                
+                simplified_modality_meta["video"][new_key] = {
+                    "resolution": [width, height],
+                    "channels": channels,
+                    "fps": fps,
+                }
+            except Exception as e:
+                print(f"Error processing video metadata for {new_key}: {str(e)}")
+                raise
 
         # 2. Dataset statistics
         stats_path = self.dataset_path / LE_ROBOT_STATS_FILENAME

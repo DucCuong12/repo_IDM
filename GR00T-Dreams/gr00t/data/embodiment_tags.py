@@ -52,3 +52,7 @@ class EmbodimentTag(Enum):
     """
     The g1 dataset.
     """
+
+    M1 = "m1"
+    M1_UNIFIED = "m1_unified"
+
