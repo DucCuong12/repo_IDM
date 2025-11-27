@@ -1,0 +1,195 @@
+{
+    "codebase_version": "v2.1",
+    "robot_type": "Unitree_G1_Inspire",
+    "total_episodes": 100,
+    "total_frames": 46941,
+    "total_tasks": 1,
+    "total_videos": 300,
+    "total_chunks": 1,
+    "chunks_size": 1000,
+    "fps": 30,
+    "splits": {
+        "train": "0:84",
+        "val": "85:100"
+    },
+    "data_path": "data/chunk-{episode_chunk:03d}/episode_{episode_index:06d}.parquet",
+    "video_path": "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.mp4",
+    "features": {
+        "observation.state": {
+            "dtype": "float32",
+            "shape": [
+                26
+            ],
+            "names": [
+                [
+                    "kLeftShoulderPitch",
+                    "kLeftShoulderRoll",
+                    "kLeftShoulderYaw",
+                    "kLeftElbow",
+                    "kLeftWristRoll",
+                    "kLeftWristPitch",
+                    "kLeftWristYaw",
+                    "kRightShoulderPitch",
+                    "kRightShoulderRoll",
+                    "kRightShoulderYaw",
+                    "kRightElbow",
+                    "kRightWristRoll",
+                    "kRightWristPitch",
+                    "kRightWristYaw",
+                    "kLeftHandPinky",
+                    "kLeftHandRing",
+                    "kLeftHandMiddle",
+                    "kLeftHandIndex",
+                    "kLeftHandThumbBend",
+                    "kLeftHandThumbRotation",
+                    "kRightHandPinky",
+                    "kRightHandRing",
+                    "kRightHandMiddle",
+                    "kRightHandIndex",
+                    "kRightHandThumbBend",
+                    "kRightHandThumbRotation"
+                ]
+            ]
+        },
+        "action": {
+            "dtype": "float32",
+            "shape": [
+                26
+            ],
+            "names": [
+                [
+                    "kLeftShoulderPitch",
+                    "kLeftShoulderRoll",
+                    "kLeftShoulderYaw",
+                    "kLeftElbow",
+                    "kLeftWristRoll",
+                    "kLeftWristPitch",
+                    "kLeftWristYaw",
+                    "kRightShoulderPitch",
+                    "kRightShoulderRoll",
+                    "kRightShoulderYaw",
+                    "kRightElbow",
+                    "kRightWristRoll",
+                    "kRightWristPitch",
+                    "kRightWristYaw",
+                    "kLeftHandPinky",
+                    "kLeftHandRing",
+                    "kLeftHandMiddle",
+                    "kLeftHandIndex",
+                    "kLeftHandThumbBend",
+                    "kLeftHandThumbRotation",
+                    "kRightHandPinky",
+                    "kRightHandRing",
+                    "kRightHandMiddle",
+                    "kRightHandIndex",
+                    "kRightHandThumbBend",
+                    "kRightHandThumbRotation"
+                ]
+            ]
+        },
+        "observation.images.cam_left_wrist": {
+            "dtype": "video",
+            "shape": [
+                480,
+                640,
+                3
+            ],
+            "names": [
+                "height",
+                "width",
+                "channel"
+            ],
+            "info": {
+                "video.height": 480,
+                "video.width": 640,
+                "video.codec": "av1",
+                "video.pix_fmt": "yuv420p",
+                "video.is_depth_map": false,
+                "video.fps": 30,
+                "video.channels": 3,
+                "has_audio": false
+            }
+        },
+        "observation.images.cam_right_wrist": {
+            "dtype": "video",
+            "shape": [
+                480,
+                640,
+                3
+            ],
+            "names": [
+                "height",
+                "width",
+                "channel"
+            ],
+            "info": {
+                "video.height": 480,
+                "video.width": 640,
+                "video.codec": "av1",
+                "video.pix_fmt": "yuv420p",
+                "video.is_depth_map": false,
+                "video.fps": 30,
+                "video.channels": 3,
+                "has_audio": false
+            }
+        },
+        "observation.images.cam_head": {
+            "dtype": "video",
+            "shape": [
+                480,
+                640,
+                3
+            ],
+            "names": [
+                "height",
+                "width",
+                "channel"
+            ],
+            "info": {
+                "video.height": 480,
+                "video.width": 640,
+                "video.codec": "av1",
+                "video.pix_fmt": "yuv420p",
+                "video.is_depth_map": false,
+                "video.fps": 30,
+                "video.channels": 3,
+                "has_audio": false
+            }
+        },
+        "timestamp": {
+            "dtype": "float32",
+            "shape": [
+                1
+            ],
+            "names": null
+        },
+        "frame_index": {
+            "dtype": "int64",
+            "shape": [
+                1
+            ],
+            "names": null
+        },
+        "episode_index": {
+            "dtype": "int64",
+            "shape": [
+                1
+            ],
+            "names": null
+        },
+        "index": {
+            "dtype": "int64",
+            "shape": [
+                1
+            ],
+            "names": null
+        },
+        "task_index": {
+            "dtype": "int64",
+            "shape": [
+                1
+            ],
+            "names": null
+        }
+    }
+}

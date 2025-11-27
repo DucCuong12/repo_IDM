@@ -47,4 +47,14 @@ Thumbs.db
 *.flv
 *.mov
 *.wmv
+*.pt
+*.pth
+*.bin
+*.parquet
+*.csv
+GR00T-Dreams/.gitignore
 
+# Local data directories
+GR00T-Dreams/data/
+GR00T-Dreams/IDM_dump/data
+GR00T-Dreams/idm/g1

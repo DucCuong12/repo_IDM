@@ -1,6 +1,8 @@
 # README #
 
-This README would normally document whatever steps are necessary to get your application up and running.
+Automatic data generation pipeline wia Natural Language 
+
+![Teaser Image](./teaser/image-20251031-082429.png)
 
 ### What is this repository for? ###
 
