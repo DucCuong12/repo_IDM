@@ -134,9 +134,9 @@ We welcome contributions! Please follow these guidelines:
 ## Contact
 
 For questions or support, please contact:
-- Repository Owner: [Your Name]
-- Email: [Your Email]
-- Team: [Team Name]
+- Repository Owner: [SenTran]
+- Email: [sentk1@vingroup.net]
+- Team: [AI manipulation]
 
 ---
 *Last updated: December 2025*
