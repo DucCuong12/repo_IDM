@@ -1,46 +1,75 @@
-# README #
-
-Automatic data generation pipeline wia Natural Language 
+# Data Pipeline for Vision Language Action model
 
 ![Teaser Image](./teaser/image-20251031-082429.png)
 
-### What is this repository for? ###
+A comprehensive pipeline for generating and processing synthetic motion data using natural language processing and computer vision techniques.
 
-* Quick summary
-* Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
+## Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [S3 Data Management](#s3-data-management)
+  - [Cosmos Model](#cosmos-model)
+  - [Cosmos Reason 1](#cosmos-reason-1)
+  - [IDM Model](#idm-model)
+- [Contribution](#contribution)
+- [Contact](#contact)
 
-### How do I get set up? ###
+## Overview
 
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
+This repository contains tools and models for generating synthetic motion data, including:
+- Natural language-driven motion generation
+- Video synthesis and processing
+- Intelligent data management and analysis
 
-### S3 upload / download dataset ###
+## Features
 
+- **Cosmos Model**: Advanced video-to-world prediction
+- **Cosmos Reason 1**: Synthetic motion validation and reasoning
+- **IDM Integration**: Pseudo label for generated video
+- **S3 Integration**: Seamless data storage and retrieval
 
+## Quick Start
+
+### Prerequisites
+- Python 3.8+
+- PyTorch
+- CUDA-compatible GPU (recommended)
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd data-pipeline
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## Usage
+
+### S3 Data Management
+
+Upload data to S3:
 ```bash
 aws s3 sync ./ s3://vmo-ai-manipulation/sentk1/server_code/cosmos-predict2.5/datasets
 ```
 
+### Cosmos Model
 
-## Synthetic montion generation
-
-
-## Cosmos model
-### cosmos training ###
-
+#### Training
 ```bash
 CUDA_VISIBLE_DEVICES=2,3 WANDB_MODE=disabled torchrun --nproc_per_node=2 --master_port=12341 -m scripts train \
-    --config=cosmos_predict2/_src/cosmos_predict2/configs/video2world/config.py \ 
+    --config=cosmos_predict2/_src/cosmos_predict2/configs/video2world/config.py \
     --job.wandb_mode=disabled ~trainer.callbacks.wandb experiment=predict2_video2world_training_2b_groot_gr1_480
 ```
 
-### cosmos inference ###
-
+#### Inference
 ```bash
 CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port=12341 examples/inference.py \
   -i ./prompt/2.json \
@@ -49,50 +78,45 @@ CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port=12341 example
   --experiment predict2_video2world_training_2b_groot_gr1_480
 ```
 
-## Cosmos reason 1
+### Cosmos Reason 1
 
-### Reasoning to identify normal synthetic motion / gen video ###
+Validate synthetic motion generation:
 
 ![Reasoning Diagram](./teaser/reasoning.png)
 
-### Generated Video Demo
-
-**Note:** This video demonstrates both successful examples and failure cases of synthetic motion generation.
-
-
+#### Example Output
 <video width="640" height="360" controls>
   <source src="./teaser/failure.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
-```bash
-# Commands for validating synthetic motion will go here
+### IDM Model
 
+1. **Data Conversion**
+   ```bash
+   python GR00T-Dreams/scripts/generate_stats.py \
+     --dataset-path GR00T-Dreams/data/m1_pick_and_place \
+     --output-path GR00T-Dreams/IDM_dump/global_metadata/m1/stats.json
+   ```
 
-```
+2. **Model Training**
+   *Training commands will be added soon*
 
-## IDM model
+## Contribution
 
-1. IDM convert data
+We welcome contributions! Please follow these guidelines:
+- Write clear, well-documented code
+- Include unit tests for new features
+- Follow the existing code style
+- Submit pull requests with detailed descriptions
 
-```bash
-python GR00T-Dreams/scripts/generate_stats.py \
-  --dataset-path GR00T-Dreams/data/m1_pick_and_place \
-  --output-path GR00T-Dreams/IDM_dump/global_metadata/m1/stats.json
+## Contact
 
-```
+For questions or support, please contact:
+- Repository Owner: [Your Name]
+- Email: [Your Email]
+- Team: [Team Name]
 
-2. IDM training
-
-3. 
-
-### Contribution guidelines ###
-
-* Writing tests
-* Code review
-* Other guidelines
-
-### Who do I talk to? ###
-
-* Repo owner or admin
+---
+*Last updated: December 2025*
 * Other community or team contact
