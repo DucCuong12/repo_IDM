@@ -35,21 +35,29 @@ This repository contains tools and models for generating synthetic motion data, 
 
 ### Prerequisites
 - Python 3.8+
-- PyTorch
-- CUDA-compatible GPU (recommended)
+- PyTorch 2.0+
+- CUDA 11.8+ compatible GPU (recommended)
+- Git LFS (for handling large files)
 
-### Installation
+### Base Installation
 
-1. Clone the repository:
+1. Clone the repository with submodules:
    ```bash
-   git clone <repository-url>
+   git clone --recurse-submodules <repository-url>
    cd data-pipeline
    ```
 
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+2. Set up each module by following their respective README files:
+
+### Module Installation
+
+| Module | Path | Installation Guide |
+|--------|------|-------------------|
+| **Cosmos Model** | `cosmos-predict2.5/` | [README.md](cosmos-predict2.5/README.md) |
+| **Cosmos Reason 1** | `cosmos-reason1/` | [README.md](cosmos-reason1/README.md) |
+| **IDM Model** | `GR00T-Dreams/` | [README.md](GR00T-Dreams/README.md) |
+
+Each module has its own README with specific installation requirements and instructions. Please refer to them for detailed setup.
 
 ## Usage
 
@@ -69,6 +77,19 @@ CUDA_VISIBLE_DEVICES=2,3 WANDB_MODE=disabled torchrun --nproc_per_node=2 --maste
     --job.wandb_mode=disabled ~trainer.callbacks.wandb experiment=predict2_video2world_training_2b_groot_gr1_480
 ```
 
+#### Checkpoint Conversion (DCP to PT)
+After training, convert the distributed checkpoint to PyTorch format:
+
+```bash
+# Get path to the latest checkpoint
+CHECKPOINTS_DIR=${IMAGINAIRE_OUTPUT_ROOT:-/tmp/imaginaire4-output}/cosmos_predict_v2p5/video2world/2b_cosmos_nemo_assets/checkpoints
+CHECKPOINT_ITER=$(cat $CHECKPOINTS_DIR/latest_checkpoint.txt)
+CHECKPOINT_DIR=$CHECKPOINTS_DIR/$CHECKPOINT_ITER
+
+# Convert DCP checkpoint to PyTorch format
+python scripts/convert_distcp_to_pt.py $CHECKPOINT_DIR/model $CHECKPOINT_DIR
+```
+
 #### Inference
 ```bash
 CUDA_VISIBLE_DEVICES=2,3 torchrun --nproc_per_node=2 --master_port=12341 examples/inference.py \
@@ -86,7 +107,7 @@ Validate synthetic motion generation:
 
 #### Example Output
 <video width="640" height="360" controls>
-  <source src="./teaser/failure.mp4" type="video/mp4">
+  <source src="./teaser/failure_case.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
