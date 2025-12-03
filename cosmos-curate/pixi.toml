@@ -1,0 +1,120 @@
+[workspace]
+channels = ["rapidsai", "conda-forge", "nvidia"]
+name = "cosmos-curate"
+platforms = ["linux-64"]
+version = "1.0.0"
+
+[pypi-options]
+extra-index-urls = ["https://pypi.nvidia.com"]
+
+[dependencies]
+python = ">=3.10.19,<3.11"
+pip = "*"
+click = { version = "!=8.3.0" } # click 8.3.0 is broken
+
+[pypi-dependencies]
+cosmos-xenna = "==0.1.7"
+ray = { version = "==2.50.0", extras = ["default"] } # conda-forge package pulls in an old version of protobuf
+
+[feature.core.system-requirements]
+cuda = "12.9.1" # match the version of the nvidia/cuda docker base image
+
+[feature.core.dependencies]
+astral = "*"
+attrs = "*"
+azure-identity = "*"
+azure-storage-blob = "*"
+cattrs = "*"
+easydict = "*"
+fastapi = "*"
+gpustat = "*"
+huggingface_hub = "*"
+jinja2 = "*"
+loguru = "*"
+numpy = "*"
+nvidia-ml-py = "*"
+nvtx = "*"
+pandas = "*"
+psycopg2-binary = "*"
+pyarrow = "*"
+pyproj = "*"
+pytest = "*"
+pytest-asyncio = "*"
+pytest-cov = "*"
+pytest-xdist = "*"
+scipy = "*"
+sqlalchemy = "*"
+tabulate = "*"
+tblib = "*"
+tenacity = "*"
+timezonefinder = "*"
+tqdm = "*"
+typer = "*"
+uvicorn = "*"
+
+[feature.core.pypi-dependencies]
+av = "*" # conda-forge package pulls in ffmpeg
+google-genai = "*" # conda-forge package is too old
+ngcsdk = "*" # not available on conda-forge
+opencv-python-headless = "*" # not available on conda-forge
+pillow = "==11.3.0"  # required by phi-4 and nemotron models, 12.0 breaks nemotron
+pulp = "*" # conda-forge package is too old
+timm = "*" # conda-forge package pulls in torchvision, which is behind
+webdataset = "*" # conda-forge package pulls in pytorch
+
+[feature.cuml.system-requirements]
+cuda = "12.9.1" # match the version of the nvidia/cuda docker base image
+
+[feature.cuml.dependencies]
+azure-identity = "*"
+azure-storage-blob = "*"
+cuml = "==25.08"
+loguru = "*"
+tqdm = "*"
+
+[feature.cuml.pypi-dependencies]
+ngcsdk = "*" # not available on conda-forge
+
+[feature.model-download.dependencies]
+azure-identity = "*"
+azure-storage-blob = "*"
+cattrs = "*"
+huggingface_hub = "*"
+loguru = "*"
+pandas = "*"
+numpy = "*"
+nvidia-ml-py = "*"
+scipy = "*"
+tabulate = "*"
+
+[feature.model-download.pypi-dependencies]
+ngcsdk = "*" # not available on conda-forge
+opencv-python-headless = "*" # not available on conda-forge
+
+[feature.transformers.dependencies]
+transformers = ">=4.57.1"
+
+[feature.unified.dependencies]
+cuda-libraries-dev = "*"
+pycuda = "*"
+
+[feature.unified.pypi-dependencies]
+cvcuda-cu12 = "*" # not available on conda-forge
+flashinfer-python = ">=0.4.0rc3" # not available on conda-forge; pre-release to avoid pynvml dependency
+PyNvVideoCodec = "*" # not available on conda-forge
+vllm = ">=0.11.0" # not available on conda-forge
+
+[feature.legacy-transformers.dependencies]
+flash-attn = "*"
+flash-attn-fused-dense = "*"
+flash-attn-layer-norm = "*"
+transformers = "==4.55.4" # legacy models (cosmos-embed1, internvideo2) require older transformers
+
+[environments]
+cuml = ["cuml"]
+default = ["core"]
+legacy-transformers = ["core", "legacy-transformers"]
+model-download = ["model-download"]
+paddle-ocr = ["core"]
+transformers = ["core", "transformers"]
+unified = ["core", "transformers", "unified"]

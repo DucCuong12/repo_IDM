@@ -1,0 +1,302 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Utilities which are used in multiple places in the pipeline and/or are unit-tested."""
+
+import subprocess
+
+import attrs
+import torch
+from loguru import logger
+
+from cosmos_curate.core.utils.config.operation_context import make_pipeline_named_temporary_file
+from cosmos_curate.core.utils.model import conda_utils
+from cosmos_curate.pipelines.video.utils.data_model import (
+    Clip,
+    Video,
+    Window,
+    WindowConfig,
+)
+from cosmos_curate.pipelines.video.utils.decoder_utils import DEFAULT_TRANSCODE_BITRATE_M, get_frame_count
+
+if conda_utils.is_running_in_env("unified"):
+    from cosmos_curate.pipelines.video.utils.vision_process import fetch_video
+
+
+@attrs.define
+class WindowFrameInfo:
+    """Container for frame window information, storing start and end frame indices.
+
+    This class represents a window of frames in a video, defined by its start and end frame positions.
+    """
+
+    start: int
+    end: int
+
+
+WINDOW_MIN_FRAMES = 4
+
+
+def compute_windows(total_frames: int, window_size: int = 128, remainder_threshold: int = 64) -> list[WindowFrameInfo]:
+    """Generate windows by splitting the video into segments of the specified size.
+
+    Args:
+        total_frames: total frames
+        window_size: The size of each window in number of frames.
+        remainder_threshold: The minimum number of frames required to create a new window from the remainder.
+
+    Yields:
+        Tuple of (start_frame, end_frame) representing each window.
+
+    """
+    if not total_frames or total_frames < WINDOW_MIN_FRAMES:
+        return []
+    if total_frames <= window_size:
+        return [WindowFrameInfo(0, total_frames - 1)]
+    # Calculate the number of full window_size windows
+    num_full_windows = total_frames // window_size
+
+    # Calculate the remainder frames after filling in window_size windows
+    remainder = total_frames % window_size
+
+    out: list[WindowFrameInfo] = []
+    # Yield each full window
+    for i in range(num_full_windows):
+        start_frame = i * window_size
+        end_frame = start_frame + window_size - 1
+        out.append(WindowFrameInfo(start_frame, end_frame))
+
+    # Handle the remainder
+    if remainder >= remainder_threshold:
+        out.append(WindowFrameInfo(total_frames - remainder, total_frames - 1))
+    elif remainder > 0 and num_full_windows > 0:
+        # Expand the last window with the remainder if it exists
+        out[-1] = WindowFrameInfo(out[-1].start, total_frames - 1)
+    return out
+
+
+def split_video_into_windows(  # noqa: PLR0913
+    mp4_bytes: bytes,
+    window_size: int = 256,
+    remainder_threshold: int = 128,
+    sampling_fps: float = 2.0,
+    *,
+    model_does_preprocess: bool = False,
+    preprocess_dtype: str = "uint8",
+    flip_input: bool = False,
+    num_frames_to_use: int = 0,
+    return_bytes: bool = False,
+    target_bit_rate: str = f"{DEFAULT_TRANSCODE_BITRATE_M}M",
+    return_video_frames: bool = True,
+    num_threads: int = 1,
+) -> tuple[list[bytes], list[torch.Tensor | None], list[WindowFrameInfo]]:
+    """Calculate windows and return video inputs for the Qwen language model from input clips.
+
+    Processes video to determine the windows for a clip, decode in one shot and return processed frames
+    for each window in a format suitable for consumption by the Qwen model.
+
+    Args:
+        mp4_bytes: input video in bytes
+        window_size: window size
+        remainder_threshold: threshold for remainder
+        sampling_fps: sampling fps when generating frames
+        model_does_preprocess: if the model does preprocessing
+        preprocess_dtype: Data type to use for preprocessing the video/image inputs.
+        flip_input: Whether to flip the input video/image horizontally.
+        num_frames_to_use: Number of frames to extract from the video. If 0, uses all frames.
+        return_bytes: Whether to extract mp4 bytes for each window for use by PreviewStage
+        target_bit_rate: Target bit rate for the output window mp4 bytes.
+        return_video_frames: whether to return video frames
+        num_threads: number of threads
+
+    Returns:
+        Tuple containing:
+            - "window_mp4_bytes": mp4 bytes corresponding to each window - only used when Preview stage is enabled
+            - "window_frames": Decoded and per-window processed frames ready for use by Qwen model
+            - "window info": start and end frame indices for each window in a clip
+
+    """
+    with make_pipeline_named_temporary_file(sub_dir="windowing") as input_file:
+        input_file.write_bytes(mp4_bytes)
+        total_frames = get_frame_count(mp4_bytes)
+        windows = compute_windows(total_frames, window_size, remainder_threshold)
+        video_frames: list[torch.Tensor | None] = []
+        mp4_bytes_list: list[bytes] = []
+
+        if not windows:
+            return mp4_bytes_list, video_frames, windows
+
+        if return_video_frames:
+            video, frame_counts = fetch_video(
+                str(input_file),
+                sampling_fps=sampling_fps,
+                window_range=windows,
+                do_preprocess=not model_does_preprocess,
+                preprocess_dtype=preprocess_dtype,
+                num_frames_to_use=num_frames_to_use,
+                flip_input=flip_input,
+            )
+
+            index = 0
+            for count in frame_counts:
+                video_frames.append(video[index : index + count - 1])
+                index += count
+
+        if return_bytes:
+            if len(windows) == 1:
+                return [mp4_bytes], video_frames, windows
+
+            for window in windows:
+                with make_pipeline_named_temporary_file(sub_dir="windowing") as tmp_file:
+                    # Use ffmpeg to split the file on the frames.
+                    command = [
+                        "ffmpeg",
+                        "-threads",
+                        str(num_threads),
+                        "-y",
+                        "-i",
+                        str(input_file),
+                        "-loglevel",
+                        "error",
+                        "-vf",
+                        f"select='between(n\\,{window.start}\\,{window.end})',setpts=PTS-STARTPTS",
+                        "-b:v",
+                        str(target_bit_rate),
+                        "-threads",
+                        str(num_threads),
+                        "-f",
+                        "mp4",
+                        "-an",
+                        str(tmp_file),
+                    ]
+                    subprocess.check_call(command)  # noqa: S603
+                    mp4_bytes_list.append(tmp_file.read_bytes())
+        return mp4_bytes_list, video_frames, windows
+
+
+def _make_windows_for_clip(  # noqa: PLR0913
+    clip: Clip,
+    config: WindowConfig,
+    target_bit_rate: str,
+    num_decode_threads: int,
+    *,
+    keep_mp4: bool = False,
+    return_frames: bool = True,
+) -> tuple[list[Window], list[torch.Tensor]]:
+    """Make windows for a clip.
+
+    Args:
+        clip: The clip to create windows for.
+        config: The configuration for the windowing.
+        target_bit_rate: The target bit rate.
+        num_decode_threads: The number of threads to use.
+        keep_mp4: Whether to keep the MP4.
+        return_frames: Whether to decode and return frame tensors.
+
+    Returns:
+        A tuple of lists of windows and frames.
+
+    """
+    windows: list[Window] = []
+    frames: list[torch.Tensor] = []
+
+    if clip.encoded_data is None:
+        logger.error(f"clip {clip.uuid} does not have a encoded_data")
+        clip.errors["clip_windowing"] = "clip.encoded_data is None"
+        return windows, frames
+
+    window_mp4_bytes, window_frames, window_infos = split_video_into_windows(
+        clip.encoded_data,
+        window_size=config.window_size,
+        remainder_threshold=config.remainder_threshold,
+        sampling_fps=config.sampling_fps,
+        model_does_preprocess=config.model_does_preprocess,
+        preprocess_dtype=config.preprocess_dtype,
+        return_bytes=keep_mp4,
+        target_bit_rate=target_bit_rate,
+        return_video_frames=return_frames,
+        num_threads=num_decode_threads,
+    )
+
+    for idx, window_frame_info in enumerate(window_infos):
+        window_frames_tensor = window_frames[idx] if idx < len(window_frames) else None
+        window_bytes = window_mp4_bytes[idx] if keep_mp4 and idx < len(window_mp4_bytes) else None
+
+        if return_frames and window_frames_tensor is None:
+            logger.error(f"Window frames are None for window {window_frame_info.start} to {window_frame_info.end}")
+            continue
+        try:
+            window = Window(
+                start_frame=window_frame_info.start,
+                end_frame=window_frame_info.end,
+                mp4_bytes=window_bytes,
+            )
+            clip.windows.append(window)
+            windows.append(window)
+            if return_frames and window_frames_tensor is not None:
+                frames.append(window_frames_tensor)
+        except Exception as e:  # noqa: BLE001
+            logger.exception("Error when splitting a video into windows")
+            clip.errors["clip_windowing"] = str(e)
+
+    return windows, frames
+
+
+def make_windows_for_video(
+    video: Video,
+    config: WindowConfig,
+    num_decode_threads: int,
+    *,
+    keep_mp4: bool = False,
+    return_frames: bool = True,
+) -> tuple[list[Window], list[torch.Tensor]]:
+    """Add windows to each clip in a video.
+
+    Args:
+        video: The video to make vLLM inputs for.
+        config: The configuration for the windowing.
+        num_decode_threads: The number of threads to use when decoding the video.
+        keep_mp4: Whether to keep the MP4.
+        return_frames: Whether to decode and return frame tensors.
+
+    Returns:
+        A tuple of lists of windows and frames.
+
+    """
+    target_bit_rate = (
+        f"{video.metadata.bit_rate_k}K" if config.use_input_bit_rate else f"{DEFAULT_TRANSCODE_BITRATE_M}M"
+    )
+
+    windows: list[Window] = []
+    frames: list[torch.Tensor] = []
+
+    for clip in video.clips:
+        if clip.encoded_data is None:
+            logger.warning(f"Clip {clip.uuid} has no encoded_data.")
+            clip.errors["encoded_data"] = "empty"
+            continue
+
+        _windows, _frames = _make_windows_for_clip(
+            clip,
+            config,
+            target_bit_rate,
+            num_decode_threads,
+            keep_mp4=keep_mp4,
+            return_frames=return_frames,
+        )
+
+        windows.extend(_windows)
+        frames.extend(_frames)
+
+    return windows, frames

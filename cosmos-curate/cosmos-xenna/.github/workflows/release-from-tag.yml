@@ -1,0 +1,158 @@
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to test release for'
+        required: true
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  DIST_DIR: flat-dist
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract changelog section for tag
+        id: extract
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          TAG=${TAG#v}  # Strip leading 'v' if present
+          echo "Looking for changelog section for tag: $TAG"
+
+          # Extract relevant section
+          CHANGELOG=$(awk -v tag="$TAG" '
+            $0 ~ "## \\[" tag "\\]" {flag=1; next}
+            flag && /^## \[/ {flag=0}
+            flag && /^### Released/ {next}
+            flag && /^- [0-9]{4}-[0-9]{2}-[0-9]{2}/ {next}
+            flag {print}
+          ' CHANGELOG.md)
+
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="No changelog entry found for $TAG"
+          fi
+
+          # Write to a temp file
+          echo "$CHANGELOG" > release_notes.md
+
+          # Save multiline output to GITHUB_ENV via file
+          echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
+          cat release_notes.md >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: Release ${{ github.event.inputs.tag || github.ref_name }}
+          body_path: release_notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-wheels:
+    needs: release
+    runs-on: ${{ matrix.conf.os }}
+    name: ${{ matrix.conf.os }}-${{ matrix.python-version }}-${{ matrix.conf.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ '3.9' ] # corresponding to abi3-py39 in Cargo.toml
+        conf:
+          - { os: ubuntu-latest, target: x86_64,  target-triple: x86_64-unknown-linux-gnu,  manylinux: auto }
+          - { os: ubuntu-latest, target: aarch64,  target-triple: aarch64-unknown-linux-gnu,  manylinux: '2_28' }
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Build wheel with maturin
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          target: ${{ matrix.conf.target }}
+          # -i python ensures we only build for the interpreter set up above
+          args: --release --out ${{ env.DIST_DIR }} -i python${{ matrix.python-version }}
+          manylinux: ${{ matrix.conf.manylinux }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.conf.os }}-${{ matrix.python-version }}-${{ matrix.conf.target }}
+          path: ${{ env.DIST_DIR }}/*
+
+  build-sdist:
+    needs: release
+    runs-on: ubuntu-latest
+    name: sdist
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist with maturin
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out ${{ env.DIST_DIR }}
+
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: ${{ env.DIST_DIR }}/*
+
+  attach-and-publish:
+    needs: build-wheels
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: ${{ env.DIST_DIR }}
+
+      - name: Attach wheels to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          files: ${{ env.DIST_DIR }}/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to TestPyPI
+        if: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+          packages-dir: ${{ env.DIST_DIR }}
+          verbose: true
+
+      - name: Publish to PyPI
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          packages-dir: ${{ env.DIST_DIR }}
+          verbose: true

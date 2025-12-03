@@ -16,6 +16,7 @@ For more details about Cosmos, please visit: https://nvidia-cosmos.github.io/cos
   - [5.3 Cosmos Transfer 2.5](#53-cosmos-transfer-25)
   - [5.4 Cosmos Reason 1](#54-cosmos-reason-1)
   - [5.5 IDM Model](#55-idm-model)
+  - [5.6 Cosmos-Curate](#56-cosmos-curate)
 - [6. Contribution](#6-contribution)
 - [7. Contact](#7-contact)
 
@@ -29,27 +30,25 @@ This repository contains tools and models for generating synthetic motion data, 
 ## 2. Features
 
 Data storage
-- **S3 Integration**: Upload & download data to S3 bucket
+- **S3 data sstorage**: Upload & download data to S3 bucket
 
 Data-pipeline modules
-- **Cosmos Model**: Advanced video-to-world prediction
+
+- **Cosmos model**: Advanced video-to-world prediction
+
 - **Cosmos Reason 1**: Synthetic motion validation and reasoning
-- **IDM Integration**: Pseudo label for generated video
+
+- **IDM model**: Pseudo label for generated video
+
 - **Cosmos Transfer 2.5**: Video-to-video transfer for motion augmentation
 
 ## 3. Quick Start
-
-### Prerequisites
-- Python 3.8+
-- PyTorch 2.0+
-- CUDA 11.8+ compatible GPU (recommended)
-- Git LFS (for handling large files)
 
 ### Base Installation
 
 1. Clone the repository with submodules:
    ```bash
-   git clone --recurse-submodules <repository-url>
+   git clone git@bitbucket.org:vinmotion/data-pipeline.git
    cd data-pipeline
    ```
 
@@ -63,6 +62,7 @@ Data-pipeline modules
 | **Cosmos Reason 1** | `cosmos-reason1/` | [README.md](cosmos-reason1/README.md) |
 | **IDM Model** | `GR00T-Dreams/` | [README.md](GR00T-Dreams/README.md) |
 | **Cosmos Transfer 2.5** | `cosmos-transfer2.5/` | [README.md](cosmos-transfer2.5/README.md) |
+| **Cosmos curate** | `cosmos-curate/` | [README.md](cosmos-curate/README.md) | 
 
 Each module has its own README with specific installation requirements and instructions. Please refer to them for detailed setup.
 
@@ -89,7 +89,35 @@ aws s3 sync ./ s3://vmo-ai-manipulation/sentk1/server_code/cosmos-predict2.5/dat
 4. Accept the license terms for the Cosmos models: [nvidia/Cosmos-Predict2.5-2B](https://huggingface.co/nvidia/Cosmos-Predict2.5-2B)
 
 
-#### Data-Preparation
+#### Data Preparation
+
+##### Directory Structure
+
+```M1 example
+M1/                 # Root directory for your dataset
+├── videos/                   # Directory containing video files
+│   ├── 0001.mp4             # Video file (H.264 encoded)
+│   ├── 0002.mp4             # Sequential numbering
+│   └── ...
+└── metas/                    # Directory containing metadata
+    ├── 0001.txt             # Text description of the action
+    └── 0002.txt             # Matches video filename
+```
+
+### Example Files
+
+1. **Video Files**:
+   - Format: MP4 (H.264 codec)
+   - Naming: Sequential numbers (e.g., `0001.mp4`, `0002.mp4`)
+   - Resolution: 1280x720 (recommended)
+
+2. **Metadata Files**:
+   - Naming: Same as corresponding video but with `.txt` extension
+   - Content: Single line description of the action
+   - Example (`0001.txt`):
+     ```
+     The robot's left arm picks up the red cube and places it in the box
+     ```
 
 ```bash
 python process_videos.py --csv datasets/benchmark_train/gr1/metadata.csv --output datasets/benchmark_train/gr1
