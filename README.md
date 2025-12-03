@@ -30,6 +30,7 @@ This repository contains tools and models for generating synthetic motion data, 
 ## 2. Features
 
 Data storage
+
 - **S3 data sstorage**: Upload & download data to S3 bucket
 
 Data-pipeline modules
@@ -93,7 +94,7 @@ aws s3 sync ./ s3://vmo-ai-manipulation/sentk1/server_code/cosmos-predict2.5/dat
 
 ##### Directory Structure
 
-```M1 example
+```bash
 M1/                 # Root directory for your dataset
 ├── videos/                   # Directory containing video files
 │   ├── 0001.mp4             # Video file (H.264 encoded)
