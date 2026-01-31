@@ -39,7 +39,7 @@ class Config:
     dataset_path: str
     """Path to the dataset directory."""
 
-    output_dir: str = "./idm/g1"
+    output_dir: str = "./idm/m2"
     os.makedirs(output_dir, exist_ok=True)
     """Directory to save model checkpoints."""
 

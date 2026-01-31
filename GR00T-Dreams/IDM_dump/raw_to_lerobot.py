@@ -454,6 +454,8 @@ def main():
             args.embodiment = "so100"
         elif 'g1' in args.output_dir:
             args.embodiment = "g1"
+        elif 'm2' in args.output_dir:
+            args.embodiment = "m2"
         else:
             raise ValueError(f"Unknown embodiment for {args.output_dir}")\
 
@@ -466,6 +468,8 @@ def main():
     elif args.embodiment == "so100":
         args.annotation_source = "human.task_description"
     elif args.embodiment == "g1" or args.embodiment == "g1_unified":
+        args.annotation_source = "human.annotation.task"
+    elif args.embodiment == "m2":
         args.annotation_source = "human.annotation.task"
     
     if args.recursive:
@@ -506,6 +510,10 @@ def main():
         source_dir = "IDM_dump/global_metadata/g1"
     elif args.embodiment == "g1_unified":
         source_dir = "IDM_dump/global_metadata/g1"
+    elif args.embodiment == "m2":
+        source_dir = "IDM_dump/global_metadata/m2"
+    elif args.embodiment == "m2_unified":
+        source_dir = "IDM_dump/global_metadata/m2"
     
     # copy modality.json
     shutil.copy(source_dir + "/modality.json", args.output_dir + "/meta/modality.json")
