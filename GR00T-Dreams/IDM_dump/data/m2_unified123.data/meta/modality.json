@@ -1,0 +1,8 @@
+{
+  "video": [
+    "observation.images.cam_head"
+  ],
+  "state": [],
+  "action": [],
+  "language": []
+}

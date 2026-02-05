@@ -1,0 +1,95 @@
+{
+  "robot_type": "m2",
+  "total_episodes": 1,
+  "total_frames": 363,
+  "total_tasks": 1,
+  "total_videos": 1,
+  "chunks_size": 1000,
+  "total_chunks": 1,
+  "fps": 30.0,
+  "data_path": "data/chunk-{episode_chunk:03d}/episode_{episode_index:06d}.parquet",
+  "video_path": "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.mp4",
+  "features": {
+    "observation.state": {
+      "dtype": "float32",
+      "shape": [
+        26
+      ],
+      "names": [
+        "left_arm_0",
+        "left_arm_1",
+        "left_arm_2",
+        "left_arm_3",
+        "left_arm_4",
+        "left_arm_5",
+        "left_arm_6",
+        "left_ee_0",
+        "left_ee_1",
+        "left_ee_2",
+        "left_ee_3",
+        "left_ee_4",
+        "left_ee_5",
+        "right_arm_0",
+        "right_arm_1",
+        "right_arm_2",
+        "right_arm_3",
+        "right_arm_4",
+        "right_arm_5",
+        "right_arm_6",
+        "right_ee_0",
+        "right_ee_1",
+        "right_ee_2",
+        "right_ee_3",
+        "right_ee_4",
+        "right_ee_5"
+      ]
+    },
+    "action": {
+      "dtype": "float32",
+      "shape": [
+        26
+      ],
+      "names": [
+        "left_arm_0",
+        "left_arm_1",
+        "left_arm_2",
+        "left_arm_3",
+        "left_arm_4",
+        "left_arm_5",
+        "left_arm_6",
+        "left_ee_0",
+        "left_ee_1",
+        "left_ee_2",
+        "left_ee_3",
+        "left_ee_4",
+        "left_ee_5",
+        "right_arm_0",
+        "right_arm_1",
+        "right_arm_2",
+        "right_arm_3",
+        "right_arm_4",
+        "right_arm_5",
+        "right_arm_6",
+        "right_ee_0",
+        "right_ee_1",
+        "right_ee_2",
+        "right_ee_3",
+        "right_ee_4",
+        "right_ee_5"
+      ]
+    },
+    "observation.images.cam_head": {
+      "dtype": "uint8",
+      "shape": [
+        480,
+        640,
+        3
+      ],
+      "names": [
+        "height",
+        "width",
+        "channels"
+      ]
+    }
+  }
+}
