@@ -238,7 +238,7 @@ if __name__ == "__main__":
         num_frames = len(states)
         timestamps = (np.arange(num_frames) / fps).tolist()
 
-        task_name = metadata.get("task", "unknown")
+        task_name = metadata.get("task", epi_idx)
         tasks_set.add(task_name)
         task_index = sorted(list(tasks_set)).index(task_name)
 
