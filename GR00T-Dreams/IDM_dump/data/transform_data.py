@@ -103,14 +103,12 @@ def build_modality_meta(state_dim, action_dim, num_branches=4):
         "state": state_meta,
         "action": action_meta,
         "video": {
-            "cam_head": {"original_key": "observation.images.cam_head"}
+            "ego_view": {"original_key": "observation.images.cam_head"}
         },
         "annotation": {
             "human.annotation.task": {"original_key": "task_index"}
         }
     }
-
-
 def build_info_meta(state_dim, action_dim, num_episodes, total_frames, fps):
     """
     Tự động build info.json meta từ số chiều thực tế.
