@@ -56,3 +56,5 @@ class EmbodimentTag(Enum):
     M1 = "m1"
     M1_UNIFIED = "m1_unified"
 
+    M2 = "m2"
+    M2_UNIFIED = "m2_unified"

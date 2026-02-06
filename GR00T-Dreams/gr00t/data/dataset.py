@@ -43,35 +43,47 @@ LE_ROBOT_DATA_FILENAME = "data/*/*.parquet"
 
 
 def calculate_dataset_statistics(parquet_paths: list[Path]) -> dict:
-    """Calculate the dataset statistics of all columns for a list of parquet files."""
-    # Dataset statistics
     all_low_dim_data_list = []
-    # Collect all the data
-    for parquet_path in tqdm(
-        sorted(list(parquet_paths)),
-        desc="Collecting all parquet files...",
-    ):
-        # Load the parquet file
-        parquet_data = pd.read_parquet(parquet_path)
-        parquet_data = parquet_data
-        all_low_dim_data_list.append(parquet_data)
+
+    for parquet_path in tqdm(sorted(list(parquet_paths)), desc="Collecting parquet files"):
+        df = pd.read_parquet(parquet_path)
+        all_low_dim_data_list.append(df)
+
     all_low_dim_data = pd.concat(all_low_dim_data_list, axis=0)
-    # Compute dataset statistics
+
     dataset_statistics = {}
-    for le_modality in all_low_dim_data.columns:
-        print(f"Computing statistics for {le_modality}...")
-        np_data = np.vstack(
-            [np.asarray(x, dtype=np.float32) for x in all_low_dim_data[le_modality]]
+
+    for col in all_low_dim_data.columns:
+
+        sample = all_low_dim_data[col].iloc[0]
+
+        if isinstance(sample, str):
+            print(f"Skipping non-numeric column: {col}")
+            continue
+
+        print(f"Computing statistics for {col}...")
+
+        np_data = np.vstack([np.asarray(x, dtype=np.float32) for x in all_low_dim_data[col]])
+
+        mean = np.mean(np_data, axis=0)
+        std = np.std(np_data, axis=0)
+        q01 = np.quantile(np_data, 0.01, axis=0)
+        q99 = np.quantile(np_data, 0.99, axis=0)
+        minv = np.min(np_data, axis=0)
+        maxv = np.max(np_data, axis=0)
+
+        dataset_statistics[col] = dict(
+            mean=mean.tolist(),
+            std=std.tolist(),
+            min=minv.tolist(),
+            max=maxv.tolist(),
+            q01=q01.tolist(),
+            q99=q99.tolist(),
         )
-        dataset_statistics[le_modality] = {
-            "mean": np.mean(np_data, axis=0).tolist(),
-            "std": np.std(np_data, axis=0).tolist(),
-            "min": np.min(np_data, axis=0).tolist(),
-            "max": np.max(np_data, axis=0).tolist(),
-            "q01": np.quantile(np_data, 0.01, axis=0).tolist(),
-            "q99": np.quantile(np_data, 0.99, axis=0).tolist(),
-        }
+
+
     return dataset_statistics
+
 
 
 class ModalityConfig(BaseModel):
@@ -84,10 +96,6 @@ class ModalityConfig(BaseModel):
 
 
 class LeRobotSingleDataset(Dataset):
-    """
-    Base dataset class for LeRobot that supports sharding.
-    """
-
     def __init__(
         self,
         dataset_path: Path | str,
@@ -240,6 +248,13 @@ class LeRobotSingleDataset(Dataset):
     def tasks(self) -> pd.DataFrame:
         """The tasks for the dataset."""
         return self._tasks
+    def print_dataset_info(self):
+        print("=== Dataset Info ===")
+        print(f"Số trajectory: {len(self.trajectory_ids)}")
+        print(f"Số step (data point): {len(self)}")
+        print(f"Số frame mỗi trajectory: {self.trajectory_lengths}")
+        print(f"Trajectory IDs: {self.trajectory_ids}")
+        print("====================")
 
     def _get_metadata(self, embodiment_tag: EmbodimentTag) -> DatasetMetadata:
         """Get the metadata for the dataset.
@@ -326,20 +341,52 @@ class LeRobotSingleDataset(Dataset):
                 raise
 
         # 2. Dataset statistics
+
+        # 2. Dataset statistics
         stats_path = self.dataset_path / LE_ROBOT_STATS_FILENAME
-        try:
+
+        need_recompute = False
+
+        if stats_path.exists():
             with open(stats_path, "r") as f:
                 le_statistics = json.load(f)
-            for stat in le_statistics.values():
-                DatasetStatisticalValues.model_validate(stat)
-        except (FileNotFoundError, ValidationError) as e:
-            print(f"Failed to load dataset statistics: {e}")
-            print(f"Calculating dataset statistics for {self.dataset_name}")
-            # Get all parquet files in the dataset paths
-            parquet_files = list((self.dataset_path).glob(LE_ROBOT_DATA_FILENAME))
+
+            # validate + auto patch missing q01/q99
+            for k, stat in le_statistics.items():
+                if "q01" not in stat or "q99" not in stat:
+                    print(f"Missing q01/q99 for {k}, recomputing statistics")
+                    need_recompute = True
+                    break
+                try:
+                    DatasetStatisticalValues.model_validate(stat)
+                except ValidationError:
+                    need_recompute = True
+                    break
+        else:
+            need_recompute = True
+
+        if need_recompute:
+            print(f"Recomputing dataset statistics for {self.dataset_name}")
+            parquet_files = list(self.dataset_path.glob(LE_ROBOT_DATA_FILENAME))
             le_statistics = calculate_dataset_statistics(parquet_files)
+            stats_path.parent.mkdir(parents=True, exist_ok=True)
             with open(stats_path, "w") as f:
-                json.dump(le_statistics, f, indent=4)
+                json.dump(le_statistics, f, indent=2)
+
+        # stats_path = self.dataset_path / LE_ROBOT_STATS_FILENAME
+        # try:
+        #     with open(stats_path, "r") as f:
+        #         le_statistics = json.load(f)
+        #     for stat in le_statistics.values():
+        #         DatasetStatisticalValues.model_validate(stat)
+        # except (FileNotFoundError, ValidationError) as e:
+        #     print(f"Failed to load dataset statistics: {e}")
+        #     print(f"Calculating dataset statistics for {self.dataset_name}")
+        #     # Get all parquet files in the dataset paths
+        #     parquet_files = list((self.dataset_path).glob(LE_ROBOT_DATA_FILENAME))
+        #     le_statistics = calculate_dataset_statistics(parquet_files)
+        #     with open(stats_path, "w") as f:
+        #         json.dump(le_statistics, f, indent=4)
         dataset_statistics = {}
         for our_modality in ["state", "action"]:
             dataset_statistics[our_modality] = {}
