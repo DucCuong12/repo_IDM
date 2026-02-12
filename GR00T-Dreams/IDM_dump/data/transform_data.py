@@ -78,9 +78,9 @@ def flatten_state_action(item):
 def build_modality_meta(state_dim, action_dim, num_branches=4):
     """
     Tự động build modality meta từ số chiều state/action thực tế.
-    Chia đều cho 4 nhánh: left_arm, right_arm, left_hand, right_hand.
+    Chia đều cho 4 nhánh: left_arm, right_arm, left_ee, right_ee.
     """
-    branch_names = ["left_arm", "right_arm", "left_hand", "right_hand"]
+    branch_names = ["left_arm", "right_arm", "left_ee", "right_ee"]
 
     def split_dim(total, n_branch):
         base = total // n_branch
@@ -177,8 +177,8 @@ def build_stats(all_states, all_actions):
 
 # ===================== MAIN =====================
 if __name__ == "__main__":
-    src_root = os.getcwd()
-    dst_folder = "m2_unified_output_test.data"
+    src_root = "m2_zed"
+    dst_folder = "m2_pickbottletest.data"
 
     episodes = sorted([
         f for f in os.listdir(src_root)
@@ -199,20 +199,22 @@ if __name__ == "__main__":
     fps = 30
 
     for epi_idx, ep in enumerate(tqdm(episodes, desc="Episodes")):
-        src_folder = ep
+        if epi_idx>=10:
+            continue
+        src_folder = os.path.join(src_root, ep)
 
         # VIDEO
-        images_dir = Path(f"{src_folder}/images")
+        images_dir = Path(os.path.join(src_folder, "colors"))
         video_path = f"{dst_folder}/videos/chunk-000/observation.images.cam_head/episode_{epi_idx:06d}.mp4"
         images_to_video(images_dir, video_path)
 
         # METADATA
-        with open(f"{src_folder}/metadata.json") as f:
+        with open(os.path.join(src_folder, "metadata.json")) as f:
             metadata = json.load(f)
         fps = metadata.get("fps", 30)
 
         # TRAJECTORY
-        with open(f"{src_folder}/trajectory.json") as f:
+        with open(os.path.join(src_folder, "trajectory.json")) as f:
             data = json.load(f)
 
         trajectory = []
