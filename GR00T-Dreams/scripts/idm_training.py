@@ -1,3 +1,4 @@
+
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -23,13 +24,49 @@ from omegaconf import OmegaConf
 
 import torch
 import tyro
-from transformers import TrainingArguments
+from transformers import TrainingArguments, TrainerCallback
 
 from gr00t.data.dataset import LeRobotSingleDataset
 from gr00t.data.schema import EmbodimentTag
 from gr00t.experiment.data_config_idm import DATA_CONFIG_MAP
 from gr00t.experiment.runner_idm import TrainRunner
 from gr00t.model.idm import IDM
+
+
+class LossLoggerCallback(TrainerCallback):
+    """Custom callback to log loss to a text file during training."""
+    
+    def __init__(self, log_file_path):
+        self.log_file_path = log_file_path
+        self.log_file = None
+        
+    def on_train_begin(self, args, state, control, **kwargs):
+        # Open log file and write header
+        os.makedirs(os.path.dirname(self.log_file_path), exist_ok=True)
+        self.log_file = open(self.log_file_path, "w")
+        self.log_file.write("step,loss,learning_rate,epoch\n")
+        self.log_file.flush()
+        print(f"[LossLoggerCallback] Logging to: {self.log_file_path}")
+        
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        # Called every logging_steps
+        if logs is not None and self.log_file is not None:
+            step = state.global_step
+            loss = logs.get("loss", "N/A")
+            lr = logs.get("learning_rate", "N/A")
+            epoch = logs.get("epoch", "N/A")
+            
+            # Write to file
+            self.log_file.write(f"{step},{loss},{lr},{epoch}\n")
+            self.log_file.flush()
+            
+            # Also print to console
+            print(f"[Step {step}] loss: {loss:.6f}, lr: {lr:.2e}, epoch: {epoch:.2f}" if isinstance(loss, float) else f"[Step {step}] loss: {loss}, lr: {lr}, epoch: {epoch}")
+    
+    def on_train_end(self, args, state, control, **kwargs):
+        if self.log_file is not None:
+            self.log_file.close()
+            print(f"[LossLoggerCallback] Training finished. Log saved to: {self.log_file_path}")
 
 @dataclass
 class Config:
@@ -39,11 +76,11 @@ class Config:
     dataset_path: str
     """Path to the dataset directory."""
 
-    output_dir: str = "./idm/m2"
+    output_dir: str = "./idm/m2_training"
     os.makedirs(output_dir, exist_ok=True)
     """Directory to save model checkpoints."""
 
-    data_config: str = "gr1_arms_only"
+    data_config: str = "m2"
     """Data configuration name from DATA_CONFIG_MAP."""
 
     # Training parameters
@@ -75,14 +112,14 @@ class Config:
     warmup_ratio: float = 0.05
     """Ratio of total training steps used for warmup."""
 
-    dataloader_num_workers: int = 8
+    dataloader_num_workers: int = 16
     """Number of workers for data loading."""
 
     report_to: str = "tensorboard"
     """Where to report training metrics (e.g., 'wandb', 'tensorboard')."""
 
     # Data loading parameters
-    embodiment_tag: str = "new_embodiment"
+    embodiment_tag: str = "m2"
     """Embodiment tag to use for training. e.g. 'new_embodiment', 'gr1'"""
 
     video_backend: str = "decord"
@@ -115,6 +152,11 @@ def main(config: Config):
         embodiment_tag=embodiment_tag,  # This will override the dataset's embodiment tag to "new_embodiment"
         video_backend=config.video_backend,
     )
+    train_dataset.print_dataset_info()
+    print((train_dataset[0].keys()))
+    print((train_dataset[0]['actions'][0]))
+    exit(0)
+    exit(0)
 
     # ------------ step 2: load model ------------
     # model = GR00T_N1.from_pretrained(
@@ -160,7 +202,7 @@ def main(config: Config):
         weight_decay=config.weight_decay,
         warmup_ratio=config.warmup_ratio,
         lr_scheduler_type="cosine",
-        logging_steps=10.0,
+        logging_steps=10,  # Log every 10 steps for real-time monitoring
         num_train_epochs=300,
         max_steps=config.max_steps,
         save_strategy="steps",
@@ -174,15 +216,31 @@ def main(config: Config):
         torch_compile_mode=None,
     )
 
-    # 2.2 run experiment
+    # 2.2 create loss logger callback
+    log_dir = Path(config.output_dir) / "logs"
+    log_file_path = log_dir / "training_loss.csv"
+    loss_logger_callback = LossLoggerCallback(str(log_file_path))
+
+    # 2.3 run experiment
     experiment = TrainRunner(
         train_dataset=train_dataset,
         model=model,
         training_args=training_args,
         resume_from_checkpoint=config.resume,
     )
+    
+    # Add custom callback to trainer
+    experiment.trainer.add_callback(loss_logger_callback)
+    
+    # Print logging info
+    print(f"\n{'='*50}")
+    print("LOGGING CONFIGURATION:")
+    print(f"  - Loss CSV: {log_file_path}")
+    print(f"  - TensorBoard: {Path(config.output_dir) / 'runs'}")
+    print(f"  - Checkpoints: {config.output_dir}")
+    print(f"{'='*50}\n")
 
-    # 2.3 run experiment
+    # 2.4 start training
     experiment.train()
 
 
@@ -247,3 +305,13 @@ if __name__ == "__main__":
             env = os.environ.copy()
             env["IS_TORCHRUN"] = "1"
             sys.exit(subprocess.run(cmd, env=env).returncode)
+
+
+# # Train như bình thường
+# bash IDM_dump/scripts/train_idm/m2_visualize.sh
+
+# # Sau khi train, visualize:
+# python scripts/visualize_loss.py --log_file <output_dir>/logs/training_loss.csv
+
+# # Hoặc xem TensorBoard:
+# tensorboard --logdir <output_dir>/runs
